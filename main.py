@@ -13,6 +13,8 @@ import progressbar
 import sys
 import argparse
 
+FILTERFILE='filters.py'
+
 progressbar.streams.wrap_stderr()
 
 logger = logging.getLogger('rsspdf')
@@ -43,6 +45,10 @@ def rotatingbar(func):
 
 
 class Newspaper:
+
+    _default_args = [
+        '-F', FILTERFILE
+    ]
 
     def __init__(self):
         self._collections = []
@@ -76,10 +82,9 @@ class Newspaper:
 
     @rotatingbar
     def export_pdf(self, filename, cli_args=None):
-        args = []
-        # args = [
-        #     '--pdf-engine=xelatex',
-        # ]
+        args = self._default_args
+        args.append('--pdf-engine=xelatex')
+
         if cli_args.title:
             title = cli_args.title
             args += ['-V', f'title:"{title}"']
@@ -92,7 +97,7 @@ class Newspaper:
 
     @rotatingbar
     def export_otherformat(self, filename, out_format, cli_args=None):
-        args = []
+        args = self._default_args
         if cli_args.title:
             title = cli_args.title
             args += ['-V', f'title:"{title}"']
