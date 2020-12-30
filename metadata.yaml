@@ -1,0 +1,6 @@
+mainfont: Linux Libertine
+geometry:
+    - paperwidth=4.2in
+    - paperheight=5.5in
+    - margin=5mm
+title: "**Morning Digest**"

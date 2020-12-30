@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-import xml.etree.ElementTree as ET
+import feedparser
 import urllib.request as request
 from readability import Document
 import configparser
-from datetime import datetime, timedelta
+from datetime import date, timedelta
+from time import mktime
 import threading
 import time
 import pypandoc
@@ -76,7 +77,6 @@ class Newspaper:
     def export_pdf(self, filename, cli_args=None):
         args = [
             '--pdf-engine=xelatex',
-            '-V', f'date:{datetime.now():%a %d %B %Y}',
         ]
         if cli_args.title:
             title = cli_args.title
@@ -86,6 +86,19 @@ class Newspaper:
 
         message("Exporting to PDF...")
         pypandoc.convert_text(self.render_html(), 'pdf', 'html',
+                              outputfile=filename, extra_args=args)
+
+    @rotatingbar
+    def export_epub(self, filename, cli_args=None):
+        args = []
+        if cli_args.title:
+            title = cli_args.title
+            args += ['-V', f'title:"{title}"']
+        if cli_args.pandoc_args:
+            args += cli_args.pandoc_args
+
+        message("Exporting to ePub...")
+        pypandoc.convert_text(self.render_html(), 'epub', 'html',
                               outputfile=filename, extra_args=args)
 
 
@@ -114,37 +127,33 @@ class Collection:
 
     def _download_url(self, url):
         message("Reading feed: %s" % url)
-        with request.urlopen(url) as f:
-            rss_text = f.read().decode('utf-8')
-            root = ET.fromstring(rss_text)
-            for channel in [c for c in root if c.tag == 'channel']:
-                for item in [i for i in channel if i.tag == 'item']:
-                    e_url = item.find('link')
-                    e_title = item.find('title')
-                    e_date = item.find('pubDate')
-                    e_author = item.find('dc:creator')
-                    if not e_url and e_title and e_date:
-                        continue
-                    else:
-                        url = e_url.text
-                        title = e_title.text
-                        date = e_date.text
-                    if e_author:  # non-standard
-                        author = e_author.text
-                        article = Article(url, title=title, date=date,
-                                          author=author)
-                    else:
-                        article = Article(url, title=title, date=date)
-                    now = datetime.now(tz=article.date.tzinfo)
-                    if self._timedelta \
-                            and now - article.date > self._timedelta:
-                        continue
-                    self._articles.append(article)
+        d = feedparser.parse(url)
+        now = date.today()
+        for entry in d.entries:
+            if 'link' not in entry or 'title' not in entry:
+                continue
+
+            attrs = {}
+
+            if 'author' in entry:
+                attrs['author'] = entry['author']
+            if 'title' in entry:
+                attrs['title'] = entry['title']
+            if 'published_parsed' in entry:
+                dt = date.fromtimestamp(mktime(entry['published_parsed']))
+                attrs['date'] = dt
+
+            article = Article(entry.link, **attrs)
+            if self._timedelta \
+                    and now - article.date > self._timedelta:
+                continue
+            self._articles.append(article)
+        return
 
     def download_articles(self, limit=None):
         articles = self._articles if limit is None else self._articles[:limit]
         message("Downloading article texts...")
-        bar = progressbar.ProgressBar(max_value=len(articles))
+        bar = progressbar.ProgressBar(marker='=', max_value=len(articles))
         for i, a in enumerate(articles):
             a.get_full_text()
             bar.update(i+1)
@@ -190,10 +199,7 @@ class Article:
         if kwargs.get('author'):
             self.author = kwargs['author']
         if kwargs.get('date'):
-            date = kwargs['date']
-            if type(date) == str:
-                date = datetime.strptime(date, '%a, %d %b %Y %H:%M:%S %z')
-            self.date = date
+            self.date = kwargs['date']
 
     def get_full_text(self):
         logger.debug('Downloading url: ' + self.url)
@@ -226,6 +232,10 @@ def main():
                         default=True,
                         help='Disables table of contents')
 
+    parser.add_argument('--format', dest='output_format', action='store',
+                        default='pdf', choices='epub,pdf,html',
+                        help='Output format')
+
     parser.add_argument('pandoc_args', action='store',
                         metavar='-- PANDOC_FLAGS', nargs='*',
                         help='Additional flags to pass to pandoc')
@@ -254,8 +264,13 @@ def main():
         newspaper.add_collection(collection)
 
     newspaper.download_all()
-    newspaper.export_pdf(args.outputFile, args)
-    # print(newspaper.render_html())
+    if args.output_format == 'pdf':
+        newspaper.export_pdf(args.outputFile, args)
+    elif args.output_format == 'epub':
+        newspaper.export_epub(args.outputFile, args)
+    elif args.output_format == 'epub':
+        with open(args.outputFile, 'w') as f:
+            f.write(newspaper.render_html())
 
 
 if __name__ == "__main__":
