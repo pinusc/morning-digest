@@ -121,7 +121,14 @@ class Collection:
 
     def set_allowed_timedelta(self, delta):
         if type(delta) == str:
-            self._timedelta = self._deltas.get(delta)
+            if delta in self._deltas:
+                self._timedelta = self._deltas.get(delta)
+            else:
+                try:
+                    self._timedelta = timedelta(days=int(delta))
+                except ValueError:
+                    message("Invalid value passed for 'last' field: " + delta)
+                    sys.exit(1)
         else:
             self._timedelta = delta
 
