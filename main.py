@@ -26,13 +26,13 @@ def message(*args, **kwargs):
 
 
 def rotatingbar(func):
-    def wrapper(*args):
+    def wrapper(*args, **kwargs):
         widgets = [progressbar.AnimatedMarker(),
                    "  ",
                    progressbar.Timer()]
         bar = progressbar.ProgressBar(poll_interval=1, widgets=widgets)
 
-        t = threading.Thread(target=func, args=args)
+        t = threading.Thread(target=func, args=args, kwargs=kwargs)
         t.start()
 
         while t.is_alive():
@@ -45,10 +45,6 @@ def rotatingbar(func):
 
 
 class Newspaper:
-
-    _default_args = [
-        '-F', FILTERFILE
-    ]
 
     def __init__(self):
         self._collections = []
@@ -81,23 +77,21 @@ class Newspaper:
         self._collections.append(collection)
 
     @rotatingbar
-    def export_pdf(self, filename, cli_args=None):
-        args = self._default_args
-        args.append('--pdf-engine=xelatex')
+    def export(self, filename, out_format, *,
+               metadata_file=None, defaults_file=None,
+               filters=None):
+        args = ['-F', FILTERFILE]
+        if out_format == 'pdf':
+            args.append('--pdf-engine=xelatex')
 
-        if cli_args.title:
-            title = cli_args.title
-            args += ['-V', f'title:"{title}"']
-        if cli_args.pandoc_args:
-            args += cli_args.pandoc_args
+        if metadata_file is not None:
+            args.append('--metadata-file=' + metadata_file)
+        if defaults_file is not None:
+            args.append('--defaults-file=' + defaults_file)
+        if filters is not None:
+            for filterf in filters:
+                args += ['-F', filterf]
 
-        message("Exporting to PDF...")
-        pypandoc.convert_text(self.render_html(), 'pdf', 'html',
-                              outputfile=filename, extra_args=args)
-
-    @rotatingbar
-    def export_otherformat(self, filename, out_format, cli_args=None):
-        args = self._default_args
         if cli_args.title:
             title = cli_args.title
             args += ['-V', f'title:"{title}"']
@@ -278,10 +272,18 @@ def main():
     feeds = [config[i] for i in config if i.startswith('feed.')]
     # parse global
     timedelta = None
+    exportkwargs = {}
     if 'general' in config:
         general = config['general']
         if 'last' in general:
             timedelta = general['last']
+        if 'metadata-file' in general:
+            exportkwargs['metadata_file'] = general['metadata-file']
+        if 'defaults-file' in general:
+            exportkwargs['defaults_file'] = general['defaults-file']
+        if 'filters' in general:
+            exportkwargs['filters'] = general['filters'].split(',')
+
     for feed in feeds:
         feed_id = feed.name.split('.')[1]
         urls = feed['url'].split(',')
@@ -295,10 +297,7 @@ def main():
         newspaper.add_collection(collection)
 
     newspaper.download_all()
-    if args.output_format == 'pdf':
-        newspaper.export_pdf(args.outputFile, args)
-    else:
-        newspaper.export_otherformat(args.outputFile, args.output_format, args)
+    newspaper.export(args.outputFile, args.output_format, args, **exportkwargs)
 
 
 if __name__ == "__main__":
