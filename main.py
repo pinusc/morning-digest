@@ -15,7 +15,6 @@ import argparse
 
 progressbar.streams.wrap_stderr()
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('rsspdf')
 logging.getLogger('readability.readability').propagate = False
 
@@ -53,11 +52,12 @@ class Newspaper:
         for collection in self._collections:
             coll_text = \
                 """
-                <section class=collection>
+                <section class=collection id={collectionid}>
                 <h1>{name}</h1>
                 {articles}
                 </section>
                 """.format(name=collection.name,
+                           collectionid=collection.id,
                            articles=collection.render_html())
             fulltext += coll_text
         fulltext += "</body></html>"
@@ -68,16 +68,18 @@ class Newspaper:
         for collection in self._collections:
             message("=== %s ===" % collection.name)
             collection.download_feed()
-            collection.download_articles()
+            if collection.fetch_original:
+                collection.download_articles()
 
     def add_collection(self, collection):
         self._collections.append(collection)
 
     @rotatingbar
     def export_pdf(self, filename, cli_args=None):
-        args = [
-            '--pdf-engine=xelatex',
-        ]
+        args = []
+        # args = [
+        #     '--pdf-engine=xelatex',
+        # ]
         if cli_args.title:
             title = cli_args.title
             args += ['-V', f'title:"{title}"']
@@ -89,7 +91,7 @@ class Newspaper:
                               outputfile=filename, extra_args=args)
 
     @rotatingbar
-    def export_epub(self, filename, cli_args=None):
+    def export_otherformat(self, filename, out_format, cli_args=None):
         args = []
         if cli_args.title:
             title = cli_args.title
@@ -97,8 +99,8 @@ class Newspaper:
         if cli_args.pandoc_args:
             args += cli_args.pandoc_args
 
-        message("Exporting to ePub...")
-        pypandoc.convert_text(self.render_html(), 'epub', 'html',
+        message(f"Exporting to {out_format}...")
+        pypandoc.convert_text(self.render_html(), out_format, 'html',
                               outputfile=filename, extra_args=args)
 
 
@@ -109,11 +111,13 @@ class Collection:
         'month': timedelta(days=30),
     }
 
-    def __init__(self, urls, name):
+    def __init__(self, collection_id, urls, name):
         self.name = name
+        self.id = collection_id
         self.urls = urls
         self._articles = []
         self._timedelta = None
+        self.fetch_original = False
 
     def set_allowed_timedelta(self, delta):
         if type(delta) == str:
@@ -142,6 +146,8 @@ class Collection:
             if 'published_parsed' in entry:
                 dt = date.fromtimestamp(mktime(entry['published_parsed']))
                 attrs['date'] = dt
+            if 'description' in entry:
+                attrs['full_text'] = entry['description']
 
             article = Article(entry.link, **attrs)
             if self._timedelta \
@@ -200,6 +206,8 @@ class Article:
             self.author = kwargs['author']
         if kwargs.get('date'):
             self.date = kwargs['date']
+        if kwargs.get('full_text'):
+            self.full_text = kwargs['full_text']
 
     def get_full_text(self):
         logger.debug('Downloading url: ' + self.url)
@@ -228,19 +236,27 @@ def main():
                         default="output.pdf",
                         help='Name of the output file')
 
+    parser.add_argument('--debug', dest='debug', action='store_true',
+                        default=False,
+                        help='Print debug info')
+
     parser.add_argument('--no-toc', dest='toc', action='store_false',
                         default=True,
                         help='Disables table of contents')
 
     parser.add_argument('--format', dest='output_format', action='store',
-                        default='pdf', choices='epub,pdf,html',
-                        help='Output format')
+                        default='pdf', help='Output format')
 
     parser.add_argument('pandoc_args', action='store',
                         metavar='-- PANDOC_FLAGS', nargs='*',
                         help='Additional flags to pass to pandoc')
 
     args = parser.parse_args()
+
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.ERROR)
 
     config = configparser.ConfigParser()
     config.read('config.ini')
@@ -255,8 +271,11 @@ def main():
         if 'last' in general:
             timedelta = general['last']
     for feed in feeds:
+        feed_id = feed.name.split('.')[1]
         urls = feed['url'].split(',')
-        collection = Collection(urls, feed['name'])
+        collection = Collection(feed_id, urls, feed['name'])
+        if feed.get('fetch-original'):
+            collection.fetch_original = ['fetch-original']
         if feed.get('last'):
             collection.set_allowed_timedelta(feed['last'])
         elif timedelta is not None:
@@ -266,11 +285,8 @@ def main():
     newspaper.download_all()
     if args.output_format == 'pdf':
         newspaper.export_pdf(args.outputFile, args)
-    elif args.output_format == 'epub':
-        newspaper.export_epub(args.outputFile, args)
-    elif args.output_format == 'epub':
-        with open(args.outputFile, 'w') as f:
-            f.write(newspaper.render_html())
+    else:
+        newspaper.export_otherformat(args.outputFile, args.output_format, args)
 
 
 if __name__ == "__main__":
