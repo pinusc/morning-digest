@@ -79,7 +79,7 @@ class Newspaper:
     @rotatingbar
     def export(self, filename, out_format, *,
                metadata_file=None, defaults_file=None,
-               filters=None):
+               filters=None, pandoc_args=None, title=None):
         args = ['-F', FILTERFILE]
         if out_format == 'pdf':
             args.append('--pdf-engine=xelatex')
@@ -87,16 +87,14 @@ class Newspaper:
         if metadata_file is not None:
             args.append('--metadata-file=' + metadata_file)
         if defaults_file is not None:
-            args.append('--defaults-file=' + defaults_file)
+            args.append('--defaults=' + defaults_file)
         if filters is not None:
             for filterf in filters:
                 args += ['-F', filterf]
-
-        if cli_args.title:
-            title = cli_args.title
+        if title is not None:
             args += ['-V', f'title:"{title}"']
-        if cli_args.pandoc_args:
-            args += cli_args.pandoc_args
+        if pandoc_args is not None:
+            args += pandoc_args
 
         message(f"Exporting to {out_format}...")
         pypandoc.convert_text(self.render_html(), out_format, 'html',
@@ -283,6 +281,10 @@ def main():
             exportkwargs['defaults_file'] = general['defaults-file']
         if 'filters' in general:
             exportkwargs['filters'] = general['filters'].split(',')
+        if 'title' in general:
+            exportkwargs['title'] = general['title']
+        if 'pandoc_args' in general:
+            exportkwargs['pandoc_args'] = general['pandoc_args']
 
     for feed in feeds:
         feed_id = feed.name.split('.')[1]
@@ -297,7 +299,7 @@ def main():
         newspaper.add_collection(collection)
 
     newspaper.download_all()
-    newspaper.export(args.outputFile, args.output_format, args, **exportkwargs)
+    newspaper.export(args.outputFile, args.output_format, **exportkwargs)
 
 
 if __name__ == "__main__":
