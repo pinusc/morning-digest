@@ -197,6 +197,9 @@ class Collection:
 
 
 class Article:
+    headers = {
+
+    }
 
     def __init__(self, url, **kwargs):
         self.url = url
@@ -215,7 +218,11 @@ class Article:
 
     def get_full_text(self):
         logger.debug('Downloading url: ' + self.url)
-        with request.urlopen(self.url) as f:
+        req = request.Request(self.url)
+        req.add_header('Referer', 'https://www.google.com/')
+        req.add_header('User-Agent',
+            'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)')
+        with request.urlopen(req) as f:
             try:
                 encoding = f.info().get_content_charset('utf-8')
                 html = f.read().decode(encoding)
