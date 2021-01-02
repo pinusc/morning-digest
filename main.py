@@ -52,6 +52,9 @@ class Newspaper:
     def render_html(self):
         fulltext = "<html><body>"
         for collection in self._collections:
+            html = collection.render_html()
+            if html == '':
+                continue
             coll_text = \
                 """
                 <section class=collection id={collectionid}>
@@ -60,7 +63,7 @@ class Newspaper:
                 </section>
                 """.format(name=collection.name,
                            collectionid=collection.id,
-                           articles=collection.render_html())
+                           articles=html)
             fulltext += coll_text
         fulltext += "</body></html>"
         return fulltext
@@ -162,6 +165,9 @@ class Collection:
 
     def download_articles(self, limit=None):
         articles = self._articles if limit is None else self._articles[:limit]
+        if len(articles) == 0:
+            message("No suitable articles found!")
+            return
         message("Downloading article texts...")
         bar = progressbar.ProgressBar(marker='=', max_value=len(articles))
         for i, a in enumerate(articles):
