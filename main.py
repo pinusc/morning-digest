@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import feedparser
 import urllib.request as request
+from urllib.error import HTTPError
 from readability import Document
 import configparser
 from datetime import date, timedelta
@@ -228,15 +229,20 @@ class Article:
         req.add_header('Referer', 'https://www.google.com/')
         req.add_header('User-Agent',
             'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)')
-        with request.urlopen(req) as f:
-            try:
+        try:
+            with request.urlopen(req) as f:
                 encoding = f.info().get_content_charset('utf-8')
                 html = f.read().decode(encoding)
                 self.full_text = Document(html).summary(html_partial=True)
-            except UnicodeDecodeError:
-                logger.error(
-                    'UnicodeDecodeError (invalid charset) decoding: ' +
-                    self.url)
+        except UnicodeDecodeError:
+            logger.error(
+                'UnicodeDecodeError (invalid charset) decoding: ' +
+                self.url)
+        except HTTPError:
+            logger.error(
+                'HTTP Error while downloading URL' + self.url)
+            message(HTTPError)
+
 
     def __str__(self):
         return self.title + ' :: ' + self.url
