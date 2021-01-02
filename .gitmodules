@@ -1,0 +1,3 @@
+[submodule "lib/readability-lxml"]
+	path = lib/readability-lxml
+	url = https://github.com/buriy/python-readability.git
