@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-from panflute import run_filters, Span, SmallCaps, Str, Header, Div
+from panflute import run_filters, Image, Span, SmallCaps, Str, Header, Div
+from panflute import debug
 
 
 def uppercase(elem):
@@ -38,8 +39,16 @@ def smallcaps(elem, doc):
         return SmallCaps(*elem.content)
 
 
+def prune_empty_images(elem, doc):
+    if type(elem) == Image:
+        if elem.url.startswith('/'):
+            return []
+        return elem
+    pass
+
+
 def main(doc=None):
-    return run_filters([smallcaps, demote], doc=doc)
+    return run_filters([smallcaps, demote, prune_empty_images], doc=doc)
 
 
 if __name__ == "__main__":

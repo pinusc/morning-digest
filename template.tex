@@ -278,13 +278,15 @@ $endif$
 $if(graphics)$
 \usepackage{graphicx}
 \makeatletter
-\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+%\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+%\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\def\maxwidth{\textwidth}
 \def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
 \makeatother
 % Scale images if necessary, so that they will not overflow the page
 % margins by default, and it is still possible to overwrite the defaults
 % using explicit options in \includegraphics[width, height, ...]{}
-\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\setkeys{Gin}{width=4in,keepaspectratio}
 % Set default figure placement to htbp
 \makeatletter
 \def\fps@figure{htbp}
@@ -407,7 +409,7 @@ $endif$
 \subtitle{$subtitle$}
 $endif$
 \author{$for(author)$$author$$sep$ \and $endfor$}
-\date{$date$}
+\date{\vspace{-3.5em}$date$}
 $if(beamer)$
 $if(institute)$
 \institute{$for(institute)$$institute$$sep$ \and $endfor$}

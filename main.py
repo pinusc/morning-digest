@@ -84,7 +84,9 @@ class Newspaper:
     def export(self, filename, out_format, *,
                metadata_file=None, defaults_file=None,
                filters=None, pandoc_args=None, title=None):
-        args = ['-F', FILTERFILE]
+        args = [
+            '-F', FILTERFILE,
+            '-M', 'date=' + date.today().strftime('%B %e, %Y')]
         if out_format == 'pdf':
             args.append('--pdf-engine=xelatex')
 
@@ -179,8 +181,12 @@ class Collection:
     def add_article(self, article):
         self._articles.append(article)
 
+    def _sort(self):
+        self._articles.sort(key=lambda x: x.date, reverse=True)
+
     def render_html(self):
         fulltext = ''
+        self._sort()
         for article in self._articles:
             date = article.date.strftime('%a, %d %b %H:%M')
             if article.author != 'Unknown':
