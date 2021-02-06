@@ -1,0 +1,4 @@
+table-of-contents: true
+toc-depth: 2
+css: epub-style.css
+template: epub.template

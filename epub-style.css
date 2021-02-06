@@ -1,0 +1,112 @@
+/* http://meyerweb.com/eric/tools/css/reset/ 
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed, 
+figure, figcaption, footer, header, hgroup, 
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure, 
+footer, header, hgroup, menu, nav, section {
+	display: block;
+}
+ol, ul {
+	list-style: none;
+}
+blockquote, q {
+	quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content: '';
+	content: none;
+}
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+/* This defines styles and classes used in the book */
+body { 
+    margin: 5%; 
+    text-align: justify; 
+    font-size: medium; 
+    line-height: 1.25;
+}
+code { font-family: monospace; }
+h1 { 
+text-align: left; 
+font-size: xx-large;
+margin-top: 2em;
+}
+h2 { 
+text-align: left; 
+font-size: large;
+margin-top: 1em;
+}
+h3 { 
+text-align: left; 
+font-size: normal;
+margin-top: 1em;
+}
+h4 { text-align: left; 
+font-size: small;
+}
+h5 { text-align: left; }
+h6 { text-align: left; }
+/* For title, author, and date on the cover page */
+h1.title { }
+p.author { }
+p.date { }
+nav#toc ol,
+nav#landmarks ol { padding: 0; margin-left: 1em; }
+nav#toc ol li,
+nav#landmarks ol li { list-style-type: none; margin: 0; padding: 0; }
+a.footnote-ref { vertical-align: super; }
+nav#toc a {
+    color: black;
+}
+em, em em em, em em em em em { font-style: italic;}
+em em, em em em em { font-style: normal; }
+code{ white-space: pre-wrap; }
+span.smallcaps{ font-variant: small-caps; }
+span.underline{ text-decoration: underline; }
+q { quotes: "“" "”" "‘" "’"; }
+div.column{ display: inline-block; vertical-align: top; width: 50%; }
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+@media screen { /* Workaround for iBooks issue; see #6242 */
+  .sourceCode {
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+  }
+}
+
+.titlepage * {
+  text-align: center;
+}
+.titlepage #titlepage-container {
+    position: absolute;
+    top: 50%;
+}
+
+body {
+    font-family: "Linux Libertine" "Source Serif Pro" serif;
+}
