@@ -126,6 +126,8 @@ class Collection:
         self._timedelta = None
         self.fetch_original = False
         self.add_title = add_title
+        # used to ensure we don't download articles twice
+        self._article_urls = set()
 
     def set_allowed_timedelta(self, delta):
         if type(delta) == str:
@@ -168,7 +170,9 @@ class Collection:
             if self._timedelta \
                     and now - article.date > self._timedelta:
                 continue
-            self._articles.append(article)
+            if article.url not in self._article_urls:
+                self._article_urls.add(article.url)
+                self._articles.append(article)
         return
 
     def download_articles(self, limit=None):
