@@ -4,7 +4,7 @@ import urllib.request as request
 from urllib.error import HTTPError
 from readability import Document
 import configparser
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from time import mktime
 import threading
 import time
@@ -86,7 +86,7 @@ class Newspaper:
                filters=None, pandoc_args=None, title=None):
         args = [
             '-F', FILTERFILE,
-            '-M', 'date=' + date.today().strftime('%A, %B %e, %Y')]
+            '-M', 'date=' + date.today().strftime('%A %e %B %Y')]
         if out_format == 'pdf':
             args.append('--pdf-engine=xelatex')
 
@@ -147,7 +147,7 @@ class Collection:
     def _download_url(self, url):
         message("Reading feed: %s" % url)
         d = feedparser.parse(url)
-        now = date.today()
+        now = datetime.now()
         for entry in d.entries:
             if 'link' not in entry or 'title' not in entry:
                 continue
@@ -159,7 +159,7 @@ class Collection:
             if 'title' in entry:
                 attrs['title'] = entry['title']
             if 'published_parsed' in entry:
-                dt = date.fromtimestamp(mktime(entry['published_parsed']))
+                dt = datetime.fromtimestamp(mktime(entry['published_parsed']))
                 attrs['date'] = dt
             if 'description' in entry:
                 attrs['full_text'] = entry['description']
@@ -193,8 +193,7 @@ class Collection:
         fulltext = ''
         self._sort()
         for article in self._articles:
-            # if article.date
-            date = article.date.strftime('%a, %d %b %H:%M')
+            date = article.getdatestr()
             if article.author != 'Unknown':
                 subtitle = "<em>{author}, {date}</em>".format(
                     author=article.author,
@@ -205,6 +204,7 @@ class Collection:
                     date=date
                 )
             if self.add_title:
+                # note: adding an h1 which will be filtered to become h2
                 fulltext += """<div class="article morning-digest-article">
                 <h1>{title}</h1>
                 {subtitle}
@@ -214,9 +214,15 @@ class Collection:
                     subtitle=subtitle,
                     body=article.full_text)
             else:
-                fulltext += """<div class="article morning-digest-article">
+                article_body = """<div class="article morning-digest-article">
                 {body}
                 </div>""".format(body=article.full_text)
+                # we're not manually adding a title but we still want a date
+                # after a title
+                # not foolproof but we assume that wenever add-title: false,
+                # there is already a h1 at the beginning of the article
+                article_body = article_body.replace('</h1>', '</h1>' + subtitle, count=1)
+                fulltext += article_body
         return fulltext
 
 
@@ -261,6 +267,14 @@ class Article:
             logger.error(
                 'HTTP Error while downloading URL' + self.url)
             message(HTTPError)
+
+    def getdatestr(self):
+        if not self.date:
+            return ""
+        if self.date.hour == 0 and self.date.minute == 0:
+            return self.date.strftime('%A, %B %d')
+        else:
+            return self.date.strftime('%A, %B %d %H:%M')
 
     def __str__(self):
         return self.title + ' :: ' + self.url
