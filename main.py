@@ -221,7 +221,8 @@ class Collection:
                 # after a title
                 # not foolproof but we assume that wenever add-title: false,
                 # there is already a h1 at the beginning of the article
-                article_body = article_body.replace('</h1>', '</h1>' + subtitle, count=1)
+                article_body = article_body.replace(
+                    '</h1>', '</h1>' + subtitle, 1)
                 fulltext += article_body
         return fulltext
 
