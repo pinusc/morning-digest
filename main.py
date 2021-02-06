@@ -193,6 +193,7 @@ class Collection:
         fulltext = ''
         self._sort()
         for article in self._articles:
+            # if article.date
             date = article.date.strftime('%a, %d %b %H:%M')
             if article.author != 'Unknown':
                 subtitle = "<em>{author}, {date}</em>".format(
@@ -228,7 +229,6 @@ class Article:
         self.url = url
         self.full_text = ''
         self.title = ''
-        self.date = None
         self.author = 'Unknown'
         if kwargs.get('title'):
             self.title = kwargs['title']
@@ -236,6 +236,8 @@ class Article:
             self.author = kwargs['author']
         if kwargs.get('date'):
             self.date = kwargs['date']
+        else:  # should never happen according to RSS specification
+            self.date = date.today()
         if kwargs.get('full_text'):
             self.full_text = kwargs['full_text']
 
