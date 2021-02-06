@@ -14,7 +14,7 @@ import progressbar
 import sys
 import argparse
 
-FILTERFILE='filters.py'
+FILTERFILE = 'filters.py'
 
 progressbar.streams.wrap_stderr()
 
@@ -103,8 +103,12 @@ class Newspaper:
             args += pandoc_args
 
         message(f"Exporting to {out_format}...")
-        pypandoc.convert_text(self.render_html(), out_format, 'html',
-                              outputfile=filename, extra_args=args)
+        if out_format == 'html_raw':
+            with open(filename, 'w') as f:
+                f.write(self.render_html())
+        else:
+            pypandoc.convert_text(self.render_html(), out_format, 'html',
+                                  outputfile=filename, extra_args=args)
 
 
 class Collection:
@@ -114,13 +118,14 @@ class Collection:
         'month': timedelta(days=30),
     }
 
-    def __init__(self, collection_id, urls, name):
+    def __init__(self, collection_id, urls, name, add_title=True):
         self.name = name
         self.id = collection_id
         self.urls = urls
         self._articles = []
         self._timedelta = None
         self.fetch_original = False
+        self.add_title = add_title
 
     def set_allowed_timedelta(self, delta):
         if type(delta) == str:
@@ -198,14 +203,19 @@ class Collection:
                 subtitle = "<em>{date}</em>".format(
                     date=date
                 )
-            fulltext += """<div class=article>
-            <h1>{title}</h1>
-            {subtitle}
-            {body}
-            </div>""".format(
-                title=article.title,
-                subtitle=subtitle,
-                body=article.full_text)
+            if self.add_title:
+                fulltext += """<div class="article morning-digest-article">
+                <h1>{title}</h1>
+                {subtitle}
+                {body}
+                </div>""".format(
+                    title=article.title,
+                    subtitle=subtitle,
+                    body=article.full_text)
+            else:
+                fulltext += """<div class="article morning-digest-article">
+                {body}
+                </div>""".format(body=article.full_text)
         return fulltext
 
 
@@ -234,7 +244,8 @@ class Article:
         req = request.Request(self.url)
         req.add_header('Referer', 'https://www.google.com/')
         req.add_header('User-Agent',
-            'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)')
+                       'Mozilla/5.0 (compatible; Googlebot/2.1;' +
+                       '+http://www.google.com/bot.html)')
         try:
             with request.urlopen(req) as f:
                 encoding = f.info().get_content_charset('utf-8')
@@ -248,7 +259,6 @@ class Article:
             logger.error(
                 'HTTP Error while downloading URL' + self.url)
             message(HTTPError)
-
 
     def __str__(self):
         return self.title + ' :: ' + self.url
@@ -276,6 +286,9 @@ def main():
     parser.add_argument('--format', dest='output_format', action='store',
                         default='pdf', help='Output format')
 
+    parser.add_argument('-c', '--config', dest='config_file', action='store',
+                        default='config.ini', help='Config file')
+
     parser.add_argument('pandoc_args', action='store',
                         metavar='-- PANDOC_FLAGS', nargs='*',
                         help='Additional flags to pass to pandoc')
@@ -288,7 +301,7 @@ def main():
         logging.basicConfig(level=logging.ERROR)
 
     config = configparser.ConfigParser()
-    config.read('config.ini')
+    config.read(args.config_file)
 
     newspaper = Newspaper()
 
@@ -316,7 +329,8 @@ def main():
         urls = feed['url'].split(',')
         collection = Collection(feed_id, urls, feed['name'])
         if feed.get('fetch-original'):
-            collection.fetch_original = ['fetch-original']
+            collection.fetch_original = feed['fetch-original']
+        collection.add_title = feed.get('add-title', 'true') == "true"
         if feed.get('last'):
             collection.set_allowed_timedelta(feed['last'])
         elif timedelta is not None:
