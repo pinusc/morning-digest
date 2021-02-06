@@ -86,7 +86,7 @@ class Newspaper:
                filters=None, pandoc_args=None, title=None):
         args = [
             '-F', FILTERFILE,
-            '-M', 'date=' + date.today().strftime('%B %e, %Y')]
+            '-M', 'date=' + date.today().strftime('%A, %B %e, %Y')]
         if out_format == 'pdf':
             args.append('--pdf-engine=xelatex')
 
