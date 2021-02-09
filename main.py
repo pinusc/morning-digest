@@ -17,6 +17,7 @@ import argparse
 FILTERFILE = 'filters.py'
 
 progressbar.streams.wrap_stderr()
+progressbars = True
 
 logger = logging.getLogger('rsspdf')
 logging.getLogger('readability.readability').propagate = False
@@ -42,7 +43,10 @@ def rotatingbar(func):
 
         t.join()
         bar.finish()
-    return wrapper
+    if progressbars:
+        return wrapper
+    else:
+        return lambda f: f
 
 
 class Newspaper:
@@ -125,6 +129,7 @@ class Collection:
         self._articles = []
         self._timedelta = None
         self.fetch_original = False
+        self.do_readability = True
         self.add_title = add_title
         # used to ensure we don't download articles twice
         self._article_urls = set()
@@ -181,11 +186,14 @@ class Collection:
             message("No suitable articles found!")
             return
         message("Downloading article texts...")
-        bar = progressbar.ProgressBar(marker='=', max_value=len(articles))
+        if progressbars:
+            bar = progressbar.ProgressBar(marker='=', max_value=len(articles))
         for i, a in enumerate(articles):
-            a.get_full_text()
-            bar.update(i+1)
-        bar.finish()
+            a.get_full_text(self.do_readability)
+            if progressbars:
+                bar.update(i+1)
+        if progressbars:
+            bar.finish()
 
     def add_article(self, article):
         self._articles.append(article)
@@ -252,7 +260,7 @@ class Article:
         if kwargs.get('full_text'):
             self.full_text = kwargs['full_text']
 
-    def get_full_text(self):
+    def get_full_text(self, readability=True):
         logger.debug('Downloading url: ' + self.url)
         req = request.Request(self.url)
         req.add_header('Referer', 'https://www.google.com/')
@@ -263,7 +271,10 @@ class Article:
             with request.urlopen(req) as f:
                 encoding = f.info().get_content_charset('utf-8')
                 html = f.read().decode(encoding)
-                self.full_text = Document(html).summary(html_partial=True)
+                if readability:
+                    self.full_text = Document(html).summary(html_partial=True)
+                else:
+                    self.full_text = html
         except UnicodeDecodeError:
             logger.error(
                 'UnicodeDecodeError (invalid charset) decoding: ' +
@@ -310,6 +321,9 @@ def main():
     parser.add_argument('-c', '--config', dest='config_file', action='store',
                         default='config.ini', help='Config file')
 
+    parser.add_argument('--no-progressbars', dest='progressbars', action='store_false',
+                        default=True, help='Config file')
+
     parser.add_argument('pandoc_args', action='store',
                         metavar='-- PANDOC_FLAGS', nargs='*',
                         help='Additional flags to pass to pandoc')
@@ -320,6 +334,9 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.ERROR)
+
+    global progressbars
+    progressbars = args.progressbars
 
     config = configparser.ConfigParser()
     config.read(args.config_file)
@@ -352,6 +369,7 @@ def main():
         if feed.get('fetch-original'):
             collection.fetch_original = feed['fetch-original']
         collection.add_title = feed.get('add-title', 'true') == "true"
+        collection.do_readability = feed.get('readability', 'true') == "true"
         if feed.get('last'):
             collection.set_allowed_timedelta(feed['last'])
         elif timedelta is not None:
