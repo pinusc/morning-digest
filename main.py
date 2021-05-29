@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-import feedparser
-import urllib.request as request
-from urllib.error import HTTPError
-from readability import Document
 import configparser
 from datetime import date, datetime, timedelta
 from time import mktime
@@ -13,6 +9,10 @@ import logging
 import progressbar
 import sys
 import argparse
+import feedparser
+import urllib.request as request
+from urllib.error import HTTPError
+from readability import Document
 
 FILTERFILE = 'filters.py'
 
@@ -29,28 +29,27 @@ def message(*args, **kwargs):
 
 def rotatingbar(func):
     def wrapper(*args, **kwargs):
-        widgets = [progressbar.AnimatedMarker(),
-                   "  ",
-                   progressbar.Timer()]
-        bar = progressbar.ProgressBar(poll_interval=1, widgets=widgets)
+        if progressbars:
+            widgets = [progressbar.AnimatedMarker(),
+                    "  ",
+                    progressbar.Timer()]
+            bar = progressbar.ProgressBar(poll_interval=1, widgets=widgets)
 
         t = threading.Thread(target=func, args=args, kwargs=kwargs)
         t.start()
 
-        while t.is_alive():
-            bar.update()
-            time.sleep(0.5)
+        if progressbars:
+            while t.is_alive():
+                bar.update()
+                time.sleep(0.5)
 
         t.join()
-        bar.finish()
-    if progressbars:
-        return wrapper
-    else:
-        return lambda f: f
+        if progressbars:
+            bar.finish()
+    return wrapper
 
 
 class Newspaper:
-
     def __init__(self):
         self._collections = []
 
@@ -122,7 +121,7 @@ class Collection:
         'month': timedelta(days=30),
     }
 
-    def __init__(self, collection_id, urls, name, add_title=True):
+    def __init__(self, collection_id, urls, name, add_title=True, add_headers=True, user_agent=''):
         self.name = name
         self.id = collection_id
         self.urls = urls
@@ -131,6 +130,8 @@ class Collection:
         self.fetch_original = False
         self.do_readability = True
         self.add_title = add_title
+        self.add_headers = add_headers
+        self.user_agent = user_agent
         # used to ensure we don't download articles twice
         self._article_urls = set()
 
@@ -189,7 +190,7 @@ class Collection:
         if progressbars:
             bar = progressbar.ProgressBar(marker='=', max_value=len(articles))
         for i, a in enumerate(articles):
-            a.get_full_text(self.do_readability)
+            a.get_full_text(self.do_readability, self.add_headers, self.user_agent)
             if progressbars:
                 bar.update(i+1)
         if progressbars:
@@ -260,13 +261,16 @@ class Article:
         if kwargs.get('full_text'):
             self.full_text = kwargs['full_text']
 
-    def get_full_text(self, readability=True):
+    def get_full_text(self, readability=True, add_headers=True, user_agent=''):
         logger.debug('Downloading url: ' + self.url)
         req = request.Request(self.url)
-        req.add_header('Referer', 'https://www.google.com/')
-        req.add_header('User-Agent',
-                       'Mozilla/5.0 (compatible; Googlebot/2.1;' +
-                       '+http://www.google.com/bot.html)')
+        if add_headers:
+            req.add_header('Referer', 'https://www.google.com/')
+            req.add_header('User-Agent',
+                        'Mozilla/5.0 (compatible; Googlebot/2.1;' +
+                        '+http://www.google.com/bot.html)')
+        if user_agent:
+            req.add_header('User-Agent', user_agent)
         try:
             with request.urlopen(req) as f:
                 encoding = f.info().get_content_charset('utf-8')
@@ -279,10 +283,12 @@ class Article:
             logger.error(
                 'UnicodeDecodeError (invalid charset) decoding: ' +
                 self.url)
-        except HTTPError:
+        except HTTPError as e:
             logger.error(
-                'HTTP Error while downloading URL' + self.url)
-            message(HTTPError)
+                'HTTP Error while downloading URL ' + self.url)
+            logger.error("HTTP code and headers: ")
+            logger.error(e.code)
+            logger.error(e.headers)
 
     def getdatestr(self):
         if not self.date:
@@ -369,7 +375,9 @@ def main():
         if feed.get('fetch-original'):
             collection.fetch_original = feed['fetch-original']
         collection.add_title = feed.get('add-title', 'true') == "true"
+        collection.add_headers = feed.get('add-headers', 'true') == "true"
         collection.do_readability = feed.get('readability', 'true') == "true"
+        collection.user_agent = feed.get('user-agent')
         if feed.get('last'):
             collection.set_allowed_timedelta(feed['last'])
         elif timedelta is not None:
